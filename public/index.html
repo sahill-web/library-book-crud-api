@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BookVault — Library Book Issue & Return Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Horizontal Header Bar with Summary Stat Pills -->
+  <header class="header-bar">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="brand-icon">📚</div>
+        <div>
+          <h1 class="brand-title">BookVault</h1>
+          <p class="brand-subtitle">Library Book Issue & Return Tracker</p>
+        </div>
+      </div>
+
+      <!-- 3 Summary Stat Pills -->
+      <div class="stats-group">
+        <div class="stat-pill" title="Total books registered in catalog">
+          <span class="stat-label">Total Books</span>
+          <span class="stat-value" id="stat-total">0</span>
+        </div>
+        <div class="stat-pill pill-available" title="Books currently available on shelves">
+          <span class="stat-label">Available on Shelf</span>
+          <span class="stat-value" id="stat-available">0</span>
+        </div>
+        <div class="stat-pill pill-issued" title="Books currently issued to students">
+          <span class="stat-label">Currently Issued</span>
+          <span class="stat-value" id="stat-issued">0</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main 2-Column Split Layout Container -->
+  <main class="main-wrapper">
+    <div class="app-grid">
+
+      <!-- LEFT COLUMN: Add / Issue Book Form -->
+      <aside class="card">
+        <div class="card-header">
+          <h2 class="card-title">📖 Register New Book</h2>
+        </div>
+        <div class="card-body">
+          <form id="bookForm" onsubmit="handleCreateBook(event)">
+            
+            <!-- Book Title -->
+            <div class="form-group">
+              <label class="form-label" for="bookTitle">Book Title <span class="req">*</span></label>
+              <input 
+                type="text" 
+                id="bookTitle" 
+                name="bookTitle" 
+                class="form-input" 
+                placeholder="e.g. Clean Code" 
+                required 
+              />
+              <p class="form-help">Full title as printed on the book cover.</p>
+            </div>
+
+            <!-- Author -->
+            <div class="form-group">
+              <label class="form-label" for="author">Author Name <span class="req">*</span></label>
+              <input 
+                type="text" 
+                id="author" 
+                name="author" 
+                class="form-input" 
+                placeholder="e.g. Robert C. Martin" 
+                required 
+              />
+            </div>
+
+            <!-- Genre -->
+            <div class="form-group">
+              <label class="form-label" for="genre">Department / Genre <span class="req">*</span></label>
+              <select id="genre" name="genre" class="form-select" required>
+                <option value="Computer Science">Computer Science</option>
+                <option value="Mathematics">Mathematics</option>
+                <option value="Electronics">Electronics</option>
+                <option value="General">General</option>
+              </select>
+            </div>
+
+            <!-- Initial Status -->
+            <div class="form-group">
+              <label class="form-label" for="status">Initial Status</label>
+              <select id="status" name="status" class="form-select" onchange="toggleRollNoField()">
+                <option value="Available" selected>Available (In Library)</option>
+                <option value="Issued">Issued (To Student)</option>
+              </select>
+            </div>
+
+            <!-- Student Roll Number -->
+            <div class="form-group" id="rollNoGroup" style="display: none;">
+              <label class="form-label" for="studentRollNo">Student Roll Number <span class="req">*</span></label>
+              <input 
+                type="text" 
+                id="studentRollNo" 
+                name="studentRollNo" 
+                class="form-input" 
+                placeholder="e.g. 23CS045" 
+              />
+              <p class="form-help">University roll number receiving this book.</p>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn-primary" id="submitBtn">
+              <span>➕ Add Book to Catalog</span>
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <!-- RIGHT COLUMN: Live Library Catalog Table -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">🏛️ Live Library Catalog</h2>
+          <button class="btn-refresh" onclick="fetchBooks()" title="Reload books from MongoDB">
+            🔄 Refresh
+          </button>
+        </div>
+        <div class="card-body">
+          
+          <!-- Table Toolbar: Search & Genre Filter -->
+          <div class="table-toolbar">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input 
+                type="text" 
+                id="searchInput" 
+                placeholder="Search by title, author, or student roll no..." 
+                oninput="filterBooks()" 
+              />
+            </div>
+            <div>
+              <select id="genreFilter" class="filter-select" onchange="filterBooks()">
+                <option value="ALL">All Genres</option>
+                <option value="Computer Science">Computer Science</option>
+                <option value="Mathematics">Mathematics</option>
+                <option value="Electronics">Electronics</option>
+                <option value="General">General</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Catalog Table -->
+          <div class="table-responsive">
+            <table class="catalog-table" id="catalogTable">
+              <thead>
+                <tr>
+                  <th>Book Title</th>
+                  <th>Author</th>
+                  <th>Genre</th>
+                  <th>Status</th>
+                  <th>Roll No</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="booksTableBody">
+                <!-- Dynamically populated via fetchBooks() -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Empty Catalog Message -->
+          <div id="emptyCatalogState" class="empty-state" style="display: none;">
+            <div class="empty-state-icon">📭</div>
+            <h3 class="empty-state-title">No Books in Catalog</h3>
+            <p>Use the form on the left to add your first library book.</p>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Modal Dialog for Issuing a Book to a Student -->
+  <div class="modal-overlay" id="issueModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="issueModalTitle">Issue Book to Student</h3>
+        <button class="modal-close-btn" onclick="closeIssueModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="modalBookId" />
+        <div class="form-group">
+          <label class="form-label" for="modalStudentRollNo">Student Roll Number <span class="req">*</span></label>
+          <input 
+            type="text" 
+            id="modalStudentRollNo" 
+            class="form-input" 
+            placeholder="e.g. 23CS045" 
+            autofocus 
+          />
+          <p class="form-help">Enter the student's unique university roll number.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeIssueModal()">Cancel</button>
+        <button type="button" class="btn-primary" style="width: auto;" onclick="submitIssueBook()">
+          Confirm Issue
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container for Notifications -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ==========================================
+       Pure Minimal Inline JavaScript (Fetch API)
+       ========================================== -->
+  <script>
+    // State storage for live catalog
+    let allBooks = [];
+
+    // Base API URL for Express endpoints
+    const API_URL = '/api/books';
+
+    // 1. Initial Page Load: Fetch books from MongoDB
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchBooks();
+    });
+
+    // Toggle roll number field on form based on status select
+    function toggleRollNoField() {
+      const statusSelect = document.getElementById('status');
+      const rollNoGroup = document.getElementById('rollNoGroup');
+      const studentRollNo = document.getElementById('studentRollNo');
+
+      if (statusSelect.value === 'Issued') {
+        rollNoGroup.style.display = 'block';
+        studentRollNo.required = true;
+      } else {
+        rollNoGroup.style.display = 'none';
+        studentRollNo.required = false;
+        studentRollNo.value = '';
+      }
+    }
+
+    // 2. READ ALL: Fetch all books (GET /api/books)
+    async function fetchBooks() {
+      try {
+        const response = await fetch(API_URL);
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          allBooks = result.data || [];
+          renderCatalog(allBooks);
+          updateSummaryStats(allBooks);
+        } else {
+          showToast(result.message || 'Failed to fetch catalog', 'error');
+        }
+      } catch (error) {
+        console.error('Error fetching books:', error);
+        showToast('Network error while connecting to server', 'error');
+      }
+    }
+
+    // 3. Render Catalog Table Rows
+    function renderCatalog(books) {
+      const tbody = document.getElementById('booksTableBody');
+      const emptyState = document.getElementById('emptyCatalogState');
+
+      tbody.innerHTML = '';
+
+      if (books.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+
+      books.forEach((book) => {
+        const tr = document.createElement('tr');
+        const isAvailable = book.status === 'Available';
+
+        tr.innerHTML = `
+          <td>
+            <div class="book-title-cell">${escapeHtml(book.bookTitle)}</div>
+          </td>
+          <td>
+            <span class="book-author-cell">by ${escapeHtml(book.author)}</span>
+          </td>
+          <td>
+            <span class="genre-tag">${escapeHtml(book.genre)}</span>
+          </td>
+          <td>
+            <span class="status-badge ${isAvailable ? 'available' : 'issued'}">
+              ${isAvailable ? 'Available' : 'Issued'}
+            </span>
+          </td>
+          <td>
+            <span class="roll-no-tag">${escapeHtml(book.studentRollNo || 'None')}</span>
+          </td>
+          <td style="text-align: right;">
+            <div class="action-buttons" style="justify-content: flex-end;">
+              ${
+                isAvailable
+                  ? `<button class="btn-action btn-issue" onclick="openIssueModal('${book._id}', '${escapeHtml(book.bookTitle)}')">
+                       📤 Issue Book
+                     </button>`
+                  : `<button class="btn-action btn-return" onclick="handleReturnBook('${book._id}', '${escapeHtml(book.bookTitle)}')">
+                       📥 Return to Shelf
+                     </button>`
+              }
+              <button class="btn-action btn-delete" onclick="handleDeleteBook('${book._id}', '${escapeHtml(book.bookTitle)}')">
+                🗑️ Remove
+              </button>
+            </div>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    // 4. Update Summary Stat Pills
+    function updateSummaryStats(books) {
+      const total = books.length;
+      const available = books.filter(b => b.status === 'Available').length;
+      const issued = books.filter(b => b.status === 'Issued').length;
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-available').textContent = available;
+      document.getElementById('stat-issued').textContent = issued;
+    }
+
+    // 5. Filter Books by Search Query & Genre
+    function filterBooks() {
+      const query = document.getElementById('searchInput').value.toLowerCase().trim();
+      const genre = document.getElementById('genreFilter').value;
+
+      const filtered = allBooks.filter((book) => {
+        const matchesQuery =
+          book.bookTitle.toLowerCase().includes(query) ||
+          book.author.toLowerCase().includes(query) ||
+          (book.studentRollNo && book.studentRollNo.toLowerCase().includes(query));
+
+        const matchesGenre = genre === 'ALL' || book.genre === genre;
+
+        return matchesQuery && matchesGenre;
+      });
+
+      renderCatalog(filtered);
+    }
+
+    // 6. CREATE: Add New Book (POST /api/books)
+    async function handleCreateBook(event) {
+      event.preventDefault();
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+
+      const bookTitle = document.getElementById('bookTitle').value.trim();
+      const author = document.getElementById('author').value.trim();
+      const genre = document.getElementById('genre').value;
+      const status = document.getElementById('status').value;
+      const studentRollNo = document.getElementById('studentRollNo').value.trim() || 'None';
+
+      const payload = {
+        bookTitle,
+        author,
+        genre,
+        status,
+        studentRollNo: status === 'Issued' ? studentRollNo : 'None'
+      };
+
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (response.status === 201 && result.success) {
+          showToast(`"${bookTitle}" added to catalog!`, 'success');
+          document.getElementById('bookForm').reset();
+          toggleRollNoField();
+          fetchBooks(); // Refresh catalog table and stat pills
+        } else {
+          showToast(result.message || 'Failed to add book', 'error');
+        }
+      } catch (error) {
+        console.error('Error adding book:', error);
+        showToast('Error connecting to server', 'error');
+      } finally {
+        submitBtn.disabled = false;
+      }
+    }
+
+    // 7. Open Issue Modal
+    function openIssueModal(bookId, bookTitle) {
+      document.getElementById('modalBookId').value = bookId;
+      document.getElementById('issueModalTitle').textContent = `Issue: "${bookTitle}"`;
+      document.getElementById('modalStudentRollNo').value = '';
+      document.getElementById('issueModal').classList.add('active');
+      document.getElementById('modalStudentRollNo').focus();
+    }
+
+    // Close Issue Modal
+    function closeIssueModal() {
+      document.getElementById('issueModal').classList.remove('active');
+    }
+
+    // 8. UPDATE: Submit Issue Book (PUT /api/books/:id)
+    async function submitIssueBook() {
+      const bookId = document.getElementById('modalBookId').value;
+      const studentRollNo = document.getElementById('modalStudentRollNo').value.trim();
+
+      if (!studentRollNo) {
+        showToast('Please enter a student roll number', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/${bookId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: 'Issued',
+            studentRollNo: studentRollNo
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          showToast(`Book issued to student roll #${studentRollNo}`, 'success');
+          closeIssueModal();
+          fetchBooks();
+        } else {
+          showToast(result.message || 'Failed to issue book', 'error');
+        }
+      } catch (error) {
+        console.error('Error issuing book:', error);
+        showToast('Error connecting to server', 'error');
+      }
+    }
+
+    // 9. UPDATE: Return Book to Shelf (PUT /api/books/:id)
+    async function handleReturnBook(bookId, bookTitle) {
+      const confirmed = confirm(`Are you sure you want to mark "${bookTitle}" as Returned to Shelf?`);
+      if (!confirmed) return;
+
+      try {
+        const response = await fetch(`${API_URL}/${bookId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: 'Available',
+            studentRollNo: 'None'
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          showToast(`"${bookTitle}" returned to shelf!`, 'success');
+          fetchBooks();
+        } else {
+          showToast(result.message || 'Failed to return book', 'error');
+        }
+      } catch (error) {
+        console.error('Error returning book:', error);
+        showToast('Error connecting to server', 'error');
+      }
+    }
+
+    // 10. DELETE: Remove Book (DELETE /api/books/:id)
+    async function handleDeleteBook(bookId, bookTitle) {
+      const confirmed = confirm(`Are you sure you want to permanently remove "${bookTitle}" from the library database?`);
+      if (!confirmed) return;
+
+      try {
+        const response = await fetch(`${API_URL}/${bookId}`, {
+          method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          showToast(`Book removed from catalog`, 'success');
+          fetchBooks();
+        } else {
+          showToast(result.message || 'Failed to delete book', 'error');
+        }
+      } catch (error) {
+        console.error('Error deleting book:', error);
+        showToast('Error connecting to server', 'error');
+      }
+    }
+
+    // 11. Toast Notification Helper
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.innerHTML = `
+        <span>${type === 'success' ? '✅' : '⚠️'}</span>
+        <span>${escapeHtml(message)}</span>
+      `;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // Helper: Escape HTML strings to prevent XSS
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
