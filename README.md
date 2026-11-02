@@ -51,12 +51,12 @@ npm install
 ```
 
 ### 3. Configure `.env`
-Ensure your `.env` file exists in the root folder with:
+Ensure your `.env` file exists in the root folder with your cluster URI:
 ```env
 PORT=3000
-MONGO_URI=mongodb+srv://sahilsheoran393_db_user:pNZLKVO11Md5ZdM1@cluster0.mongodb.net/bookvault?retryWrites=true&w=majority
+MONGO_URI=mongodb+srv://sahilsheoran393_db_user:pNZLKVO11Md5ZdM1@cluster0.kx8b99f.mongodb.net/bookvault?retryWrites=true&w=majority
 ```
-*(If your MongoDB Atlas cluster hostname differs from `cluster0.mongodb.net`, replace it with your actual cluster address from Atlas).*
+
 
 ### 4. Run the Application
 For regular production start:
